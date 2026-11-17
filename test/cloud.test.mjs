@@ -25,18 +25,17 @@ test('API recusa origem externa e corpo acima do limite',()=>{
   assert.equal(sameOrigin(request({origin:'https://external.example'})),false);
   assert.throws(()=>bodyObject({headers:{'content-type':'application/json'},body:{image:'a'.repeat(10)}},5),/grande/);
 });
-test('configuração não revela a chave; login usa cookie seguro e fotos exigem sessão',async(t)=>{
-  const originalKey=process.env.GEMINI_API_KEY, originalPassword=process.env.APP_PASSWORD;
-  process.env.GEMINI_API_KEY='chave-ficticia-para-teste';process.env.APP_PASSWORD='senha-ficticia-para-teste';
-  t.after(()=>{if(originalKey===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=originalKey;if(originalPassword===undefined)delete process.env.APP_PASSWORD;else process.env.APP_PASSWORD=originalPassword;});
+test('configuração não revela chave e análise funciona sem senha nem cookie',async(t)=>{
+  const originalKey=process.env.GEMINI_API_KEY,originalPassword=process.env.APP_PASSWORD,originalFetch=globalThis.fetch;
+  process.env.GEMINI_API_KEY=' GEMINI_API_KEY="chave-ficticia-para-teste" ';delete process.env.APP_PASSWORD;
+  t.after(()=>{globalThis.fetch=originalFetch;if(originalKey===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=originalKey;if(originalPassword===undefined)delete process.env.APP_PASSWORD;else process.env.APP_PASSWORD=originalPassword;});
   const configRes=response();configHandler({...request(),method:'GET'},configRes);
-  assert.equal(configRes.data.local,false);assert.equal(configRes.data.storage,'browser');assert.equal(configRes.data.configured,true);
-  assert.ok(!JSON.stringify(configRes.data).includes(process.env.GEMINI_API_KEY));
-  const unauth=response();await analyzeHandler({...request(),method:'POST',body:{}},unauth);assert.equal(unauth.statusCode,401);
-  const login=response();sessionHandler({...request({'content-type':'application/json',origin:'https://nutra.example'}),method:'POST',body:{password:process.env.APP_PASSWORD}},login);
-  assert.equal(login.statusCode,200);assert.match(login.headers['Set-Cookie'],/HttpOnly; Secure; SameSite=Strict/);
-  const cookie=login.headers['Set-Cookie'].split(';')[0];
-  const badPhoto=response();await analyzeHandler({...request({cookie,'content-type':'application/json'}),method:'POST',body:{consent:false}},badPhoto);
+  assert.equal(configRes.data.requiresPassword,false);assert.equal(configRes.data.configured,true);
+  assert.ok(!JSON.stringify(configRes.data).includes('chave-ficticia'));
+  const badPhoto=response();await analyzeHandler({...request({'content-type':'application/json'}),method:'POST',body:{consent:false}},badPhoto);
   assert.equal(badPhoto.statusCode,400);assert.match(badPhoto.data.error,/Autorize/);
+  let sent=false;globalThis.fetch=async(url,options)=>{sent=true;assert.equal(options.headers['x-goog-api-key'],'chave-ficticia-para-teste');return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({items:[],notes:'Sem comida'})}]}}]}),{status:200,headers:{'content-type':'application/json'}});};
+  const photo=response();await analyzeHandler({...request({'content-type':'application/json',origin:'https://nutra.example'}),method:'POST',body:{consent:true,mimeType:'image/png',image:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}},photo);
+  assert.equal(photo.statusCode,200);assert.ok(sent);assert.deepEqual(photo.data.items,[]);
   const configWrite=response();configHandler({...request(),method:'POST',body:{key:'public-key'}},configWrite);assert.equal(configWrite.statusCode,405);
 });

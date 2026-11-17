@@ -12,9 +12,8 @@ Antes de publicar, adicione as variáveis em **Settings > Environment Variables*
 | --- | --- |
 | `GEMINI_API_KEY` | Sua chave privada do Google AI Studio. |
 | `GEMINI_MODEL` | `gemini-3.1-flash-lite` (opcional, este é o padrão). |
-| `APP_PASSWORD` | Uma senha longa e exclusiva para liberar as fotos (prefira ao menos 20 caracteres). |
 
-Acesse o domínio fornecido pela Vercel e abra **Ajustes**. Entre com a senha escolhida em `APP_PASSWORD` para liberar a análise de fotos. A chave Gemini fica somente nas funções do servidor. Sem essas variáveis, busca manual, metas e histórico continuam funcionando, enquanto a análise de fotos fica desabilitada. Alterar variáveis na Vercel exige um novo deploy.
+A análise de fotos não exige senha. A chave Gemini fica somente nas funções do servidor. Configure GEMINI_API_KEY para habilitar as fotos. Busca manual, metas e histórico funcionam sem a chave. Alterar variáveis na Vercel exige um novo deploy.
 
 O histórico persiste no mesmo navegador e domínio após fechar a aba ou atualizar o app. Não há sincronização automática entre dispositivos nesta versão. Use **Exportar meus dados** e **Restaurar cópia** para migrar o diário local. Ao mudar de domínio, exporte antes e restaure no novo endereço. Limpar os dados do site ou usar uma janela privada pode apagar os registros do navegador. Supabase não é necessário para esta primeira publicação.
 
@@ -28,7 +27,7 @@ O servidor escuta apenas no próprio computador. O layout se adapta a telas pequ
 
 ## Uso
 
-1. Abra **Metas** e preencha seu perfil para obter uma referência diária.
+1. Abra **Metas** e preencha seu perfil. Os valores válidos são calculados e salvos automaticamente. Peso aceita vírgula decimal, e altura pode ser informada em centímetros ou metros.
 2. No **Diário**, escolha a data. Use **Registrar** para buscar alimentos ou **Por foto** para estimar os itens de um prato. Revise sempre o alimento correspondente e os gramas antes de salvar. A foto não é armazenada.
 3. Compare **quanto falta para a meta de consumo** com o **saldo do dia em relação à manutenção**. São duas comparações diferentes. A meta de emagrecimento, por exemplo, pode ser 1.950 kcal mesmo quando o gasto estimado é 2.300 kcal.
 4. Use **Fechar dia** depois de registrar as refeições. Dia aberto mostra projeção. O dia fechado guarda a classificação com os dados registrados. Editar alimentos reabre o dia. Dias sem alimentos não recebem classificação de déficit.
