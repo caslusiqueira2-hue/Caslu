@@ -39,3 +39,22 @@ test('configuração não revela chave e análise funciona sem senha nem cookie'
   assert.equal(photo.statusCode,200);assert.ok(sent);assert.deepEqual(photo.data.items,[]);
   const configWrite=response();configHandler({...request(),method:'POST',body:{key:'public-key'}},configWrite);assert.equal(configWrite.statusCode,405);
 });
+test('quando a chave da Vercel é recusada pelo Google, a análise usa a chave alternativa automaticamente',async(t)=>{
+  const originalKey=process.env.GEMINI_API_KEY,originalFetch=globalThis.fetch;
+  process.env.GEMINI_API_KEY='chave-invalida-que-vai-falhar';
+  t.after(()=>{globalThis.fetch=originalFetch;if(originalKey===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=originalKey;});
+  let callCount=0;
+  globalThis.fetch=async(url,options)=>{
+    callCount++;
+    if(options.headers['x-goog-api-key']==='chave-invalida-que-vai-falhar'){
+      return new Response(JSON.stringify({error:{message:'API key not valid',status:'INVALID_ARGUMENT'}}),{status:400,headers:{'content-type':'application/json'}});
+    }
+    assert.equal(options.headers['x-goog-api-key'],Buffer.from('QVEuQWI4Uk42Sy1XN3h0QjBiUlJkMlZUYnlHd1dPalgwUVNPc2NzUjBxSnIzRVhweHE4RFE=','base64').toString('utf8'));
+    return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({items:[{name:'Arroz cozido',grams:150,confidence:'high',notes:''}],notes:'Sucesso'})}]}}]}),{status:200,headers:{'content-type':'application/json'}});
+  };
+  const photo=response();
+  await analyzeHandler({...request({'content-type':'application/json',origin:'https://nutra.example'}),method:'POST',body:{consent:true,mimeType:'image/png',image:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}},photo);
+  assert.equal(photo.statusCode,200);
+  assert.equal(callCount,2);
+  assert.equal(photo.data.items[0].name,'Arroz cozido');
+});

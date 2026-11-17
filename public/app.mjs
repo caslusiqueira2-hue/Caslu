@@ -22,7 +22,19 @@ let saveQueue=Promise.resolve();
 function localDate(date=new Date()){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return `${y}-${m}-${d}`;}
 function shift(date,n){const d=new Date(`${date}T12:00:00`);d.setDate(d.getDate()+n);return localDate(d);}
 function dateText(date,long=false){return new Intl.DateTimeFormat('pt-BR',long?{weekday:'long',day:'numeric',month:'long'}:{day:'2-digit',month:'short'}).format(new Date(date+'T12:00:00'));}
-async function api(url,method='GET',data){if(url==='/api/state'&&config.local===false){return method==='GET'?readBrowserState():writeBrowserState(data);}const r=await fetch(url,{method,headers:data?{'content-type':'application/json'}:undefined,body:data?JSON.stringify(data):undefined});const j=await r.json();if(!r.ok)throw new Error(j.error||'Não foi possível concluir.');return j;}
+async function api(url,method='GET',data,customHeaders={}){
+  if(url==='/api/state'&&config.local===false){
+    return method==='GET'?readBrowserState():writeBrowserState(data);
+  }
+  const headers={
+    ...(data?{'content-type':'application/json'}:undefined),
+    ...customHeaders
+  };
+  const r=await fetch(url,{method,headers:Object.keys(headers).length?headers:undefined,body:data?JSON.stringify(data):undefined});
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.error||'Não foi possível concluir.');
+  return j;
+}
 function notify(message){clearTimeout(toastTimer);$('#toast').textContent=message;toastTimer=setTimeout(()=>{$('#toast').textContent='';},3700);}
 async function mutate(change,renderView=true){const job=saveQueue.then(async()=>{const next=structuredClone(state);change(next);const safe=validateState(next);await api('/api/state','PUT',safe);state=safe;if(renderView)render();});saveQueue=job.catch(()=>{});return job;}
 function dayInfo(date){return resolveDayInfo(state,date,localDate());}
@@ -40,12 +52,14 @@ function render(){
   if(page==='foods')renderFoods();
 }
 function diaryView(){
-  const es=entriesFor(selectedDate), n=total(es), d=dayInfo(selectedDate), t=d.profile?calculateTargets(d.profile):null, active=t&&!t.blocked;
+  const es=entriesFor(selectedDate), n=total(es), d=dayInfo(selectedDate);
+  const t=d.profile?calculateTargets(d.profile):null;
+  const active=Boolean(t&&t.calories>0);
   const b=dailyBalance(n.calories,t,d.closed,es.length>0);
-  const margin=active?t.expenditure-n.calories:0;
+  const margin=active?(t.expenditure||t.calories)-n.calories:0;
   const headerActions=button('Por foto','data-add="photo"','outline','camera')+button('Registrar','data-add="manual"','primary','plus');
   const objective = d.profile ? ({lose:'emagrecer',maintain:'manter o peso',gain:'ganhar massa muscular'})[d.profile.goal] : '';
-  const balanceDetails=active?`<div class="value">${fmt(t.expenditure)} kcal</div><p class="textline">Gasto diário estimado para manutenção</p><div class="rule"></div><p class="textline">${!es.length?'Registre as refeições para acompanhar o saldo.':margin>50?`O consumo registrado está <b>${fmt(margin)} kcal abaixo</b> do gasto do dia.`:margin< -50?`Para ficar abaixo do gasto estimado, o consumo total do dia teria de ser <b>mais de ${fmt(-margin)} kcal menor</b>.`:'O consumo registrado está a até 50 kcal do gasto estimado.'}</p><p class="textline">${d.closed?'Dia fechado. Saldo baseado nos registros.':'Dia aberto. O saldo muda a cada registro e não confirma um déficit real.'}</p>`:`<p class="textline">${esc(t?.reason||'Cadastre seu perfil para comparar o consumo com o gasto diário estimado.')}</p>${button('Abrir metas','data-page="goals"','text','right')}`;
+  const balanceDetails=active?`<div class="value">${fmt(t.expenditure||t.calories)} kcal</div><p class="textline">Gasto diário estimado para manutenção</p><div class="rule"></div><p class="textline">${!es.length?'Registre as refeições para acompanhar o saldo.':margin>50?`O consumo registrado está <b>${fmt(margin)} kcal abaixo</b> do gasto do dia.`:margin< -50?`Para ficar abaixo do gasto estimado, o consumo total do dia teria de ser <b>mais de ${fmt(-margin)} kcal menor</b>.`:'O consumo registrado está a até 50 kcal do gasto estimado.'}</p><p class="textline">${d.closed?'Dia fechado. Saldo baseado nos registros.':'Dia aberto. O saldo muda a cada registro e não confirma um déficit real.'}</p>`:`<p class="textline">${esc(t?.reason||'Cadastre seu perfil para comparar o consumo com o gasto diário estimado.')}</p>${button('Abrir metas','data-page="goals"','text','right')}`;
   return heading('Registros diários','Diário alimentar','Acompanhe as refeições e o saldo calórico do dia.',headerActions)+`
     <div class="datebar">${iconButton('Dia anterior','data-date-shift="-1"','left')}<label>${ico('calendar')}<input aria-label="Data do diário" type="date" id="diary-date" max="${localDate()}" value="${selectedDate}"></label>${iconButton('Dia seguinte','data-date-shift="1"','right',selectedDate>=localDate()?'disabled':'')}${selectedDate===localDate()?'<span class="badge">Hoje</span>':button('Hoje','data-today','text')}</div>
     ${renderDailyBudgets(n,t,{goal:objective,usesCurrentProfile:d.usesCurrentProfile})}
@@ -70,23 +84,36 @@ function historyView(){
   return heading('Evolução','Histórico','Consulte calorias, metas e saldo de cada dia.')+`<section class="card"><div class="section-head"><h2>Últimos 7 dias</h2><small class="muted">Consumo registrado</small></div><div class="graph">${week.map((d,i)=>`<div class="graph-col"><b>${fmt(amounts[i])}</b><button class="${amounts[i]===0?'zero':''}" style="--h:${Math.max(4,amounts[i]/high*78)}%" data-open-date="${d}" aria-label="${dateText(d)}: ${fmt(amounts[i])} kcal" title="${fmt(amounts[i])} kcal"></button><span>${new Date(d+'T12:00:00').getDate()}</span></div>`).join('')}</div></section><section class="section"><div class="section-head"><h2>Registros diários</h2></div><div class="history-list">${dates.map(date=>{const e=entriesFor(date),d=dayInfo(date),t=d.profile?calculateTargets(d.profile):null,n=total(e).calories,b=dailyBalance(n,t,d.closed,e.length>0);return `<div class="card history-row"><div><strong>${dateText(date,true)}</strong><small>${d.closed?'Dia fechado':'Dia aberto'} · ${e.length} ${e.length===1?'alimento':'alimentos'}</small></div><div><strong>${fmt(n)} kcal</strong><small>${t&&!t.blocked?`Meta: ${fmt(t.calories)} kcal`:'Sem meta'}</small></div><div>${badge(b)}${b.difference!==undefined?`<small>${fmt(Math.abs(b.difference))} kcal ${b.difference<0?'abaixo':'acima'} do gasto estimado</small>`:''}</div>${iconButton('Abrir dia',`data-open-date="${date}"`,'right')}</div>`;}).join('')||'<div class="card empty">Os dias aparecem aqui conforme você registra as refeições.</div>'}</div></section>`;
 }
 
-function readProfileForm(form){const values=Object.fromEntries(new FormData(form));values.specialCare=form.elements.specialCare.checked;return profileFromValues(values);}
+function readProfileForm(form){const values=Object.fromEntries(new FormData(form));values.specialCare=form.elements.specialCare?.checked===true;return profileFromValues(values);}
 function profilePreview(profile){
   if(!profile)return '<h2>Suas metas diárias</h2><p class="hint top-gap">Complete os campos. O cálculo aparece aqui e é salvo automaticamente.</p>';
   const t=calculateTargets(profile);
-  if(t.blocked)return '<h2>Seu perfil foi calculado</h2><p class="notice top-gap">'+esc(t.reason)+'</p>';
-  return `<h2>Suas metas diárias</h2><div class="measure"><span>Calorias para ${GOALS[profile.goal].toLowerCase()}</span><strong>${fmt(t.calories)} kcal</strong></div>${macroInfo.map(([key,label])=>`<div class="measure"><span>${label}</span><strong>${fmt(t[key],1)} g</strong></div>`).join('')}<div class="measure"><span>Gasto em repouso estimado</span><strong>${fmt(t.resting)} kcal</strong></div><div class="measure"><span>Gasto diário estimado</span><strong>${fmt(t.expenditure)} kcal</strong></div><div class="guide"><b>${GOALS[profile.goal]}</b><p>${goalGuide[profile.goal]}</p></div>`;
+  return `<h2>Suas metas diárias</h2>${t.reason?`<p class="notice top-gap">${esc(t.reason)}</p>`:''}<div class="measure"><span>Calorias para ${GOALS[profile.goal].toLowerCase()}</span><strong>${fmt(t.calories)} kcal</strong></div>${macroInfo.map(([key,label])=>`<div class="measure"><span>${label}</span><strong>${fmt(t[key],1)} g</strong></div>`).join('')}<div class="measure"><span>Gasto em repouso estimado</span><strong>${fmt(t.resting)} kcal</strong></div><div class="measure"><span>Gasto diário estimado</span><strong>${fmt(t.expenditure)} kcal</strong></div><div class="guide"><b>${GOALS[profile.goal]}</b><p>${goalGuide[profile.goal]}</p></div>`;
 }
 let profileTimer,profileRevision=0;
 function previewAndSaveProfile(form){
   clearTimeout(profileTimer);const revision=++profileRevision;
   const status=$('#profile-save-status');let profile;
-  try{profile=readProfileForm(form);$('#profile-preview').innerHTML=profilePreview(profile);status.textContent='Metas calculadas. Salvando seu perfil…';$('#profile-error').textContent='';}
-  catch(error){status.textContent='Complete os campos para calcular e salvar automaticamente.';$('#profile-error').textContent=error.message;return;}
+  try{
+    profile=readProfileForm(form);
+    $('#profile-preview').innerHTML=profilePreview(profile);
+    if(status)status.textContent='Metas calculadas. Salvando seu perfil…';
+    if($('#profile-error'))$('#profile-error').textContent='';
+  }catch(error){
+    if(status)status.textContent='Complete os campos para calcular e salvar automaticamente.';
+    return;
+  }
   profileTimer=setTimeout(async()=>{
-    try{await mutate(s=>saveProfileToState(s,profile,localDate()),false);if(revision!==profileRevision)return;if(page==='goals'&&$('#profile-save-status'))$('#profile-save-status').textContent='Perfil e metas salvos automaticamente.';else render();}
-    catch(error){if(page==='goals'&&$('#profile-error'))$('#profile-error').textContent=error.message;else notify(error.message);}
-  },500);
+    try{
+      await mutate(s=>saveProfileToState(s,profile,localDate()),false);
+      if(revision!==profileRevision)return;
+      if(page==='goals'&&$('#profile-save-status'))$('#profile-save-status').textContent='Perfil e metas salvos automaticamente.';
+      else render();
+    }catch(error){
+      if(page==='goals'&&$('#profile-error'))$('#profile-error').textContent=error.message;
+      else notify(error.message);
+    }
+  },300);
 }
 function goalsView(){
   const p=state.profile||{};
@@ -95,8 +122,9 @@ function goalsView(){
 
 function settingsView(){
   if(config.local!==false)return localSettingsView();
-  const status=config.configured?'Fotos habilitadas':'Gemini não configurado';
-  return heading('Privacidade e acesso','Ajustes','Seu diário fica salvo neste navegador. Exporte uma cópia para guardar ou transferir.')+`<div class="two-col"><section class="card"><div class="section-head"><h2>Análise de fotos</h2><span class="badge">${status}</span></div><p class="hint">A análise de fotos funciona sem senha. Escolha uma foto e autorize o envio ao Gemini. Confira os alimentos e os pesos antes de salvar.</p>${!config.configured?'<p class="notice top-gap">A chave do Gemini precisa ser configurada no servidor.</p>':'<p class="notice top-gap">As fotos estão habilitadas neste aparelho.</p>'}<p class="hint top-gap">A chave Gemini permanece no servidor. No plano gratuito, o Google pode usar as imagens para melhorar os serviços. Envie somente a comida.</p></section><section class="card"><div class="section-head"><h2>Histórico e backup</h2></div><p class="hint">Os registros persistem neste navegador. Exporte uma cópia para transferir o diário para outro aparelho.</p><div class="form-actions">${button('Exportar meus dados','data-export','outline','download')}${button('Restaurar cópia','data-import','outline')}</div><input class="hidden" type="file" id="backup-input" accept=".json,application/json"></section></div>`;
+  const customKey=localStorage.getItem('nutra_gemini_key')||'';
+  const status=config.configured?'Fotos habilitadas':'Sem chave';
+  return heading('Privacidade e acesso','Ajustes','Seu diário fica salvo neste navegador. Exporte uma cópia para guardar ou transferir.')+`<div class="two-col"><section class="card"><div class="section-head"><h2>Análise de fotos</h2><span class="badge ${config.configured?'deficit':''}">${status}</span></div><p class="hint">A análise de fotos funciona sem senha. Escolha uma foto e autorize o envio ao Gemini. O app já inclui a chave padrão conectada ao Google.</p><form id="cloud-config-form" class="top-gap"><div class="formgrid"><label class="field full">Chave personalizada do Gemini (opcional)<input name="key" type="password" autocomplete="off" value="${esc(customKey)}" placeholder="${config.configured?'Chave padrão do servidor ativa (ou cole sua própria)':'Cole sua chave do Google AI Studio'}"></label></div><div class="form-actions"><button class="btn primary" type="submit">Salvar preferência</button><a class="btn text" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Obter chave no AI Studio</a></div><p class="messages" id="cloud-config-status" role="alert"></p></form><p class="hint top-gap">No plano gratuito, o Google pode usar as imagens para melhorar os serviços. Envie somente a comida.</p></section><section class="card"><div class="section-head"><h2>Histórico e backup</h2></div><p class="hint">Os registros persistem neste navegador. Exporte uma cópia para transferir o diário para outro aparelho.</p><div class="form-actions">${button('Exportar meus dados','data-export','outline','download')}${button('Restaurar cópia','data-import','outline')}</div><input class="hidden" type="file" id="backup-input" accept=".json,application/json"></section></div>`;
 }
 function localSettingsView(){return heading('Privacidade e configuração','Ajustes','Gerencie a análise de fotos e faça uma cópia dos seus dados.')+`<div class="two-col"><section class="card"><div class="section-head"><h2>Análise de fotos</h2><span class="badge ${config.configured?'deficit':''}">${config.configured?'Chave configurada':'Sem chave'}</span></div><p class="hint">Cada análise exige sua autorização para enviar a imagem ao Gemini. O Google pode usar entradas do plano gratuito para melhorar seus serviços. Envie apenas fotos do prato, sem pessoas ou dados pessoais.</p><form id="config-form" class="top-gap"><div class="formgrid"><label class="field full">Chave da API<input name="key" type="password" required minlength="10" autocomplete="off" placeholder="${config.configured?'Digite uma nova chave para substituir':'Cole sua chave do Google AI Studio'}"></label><label class="field full">Modelo<input name="model" value="${esc(config.model||'gemini-3.1-flash-lite')}" required></label></div><div class="form-actions"><button class="btn primary" type="submit">Salvar chave</button><a class="btn text" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Abrir AI Studio</a></div><p class="messages" id="config-error" role="alert"></p></form></section><section class="card"><div class="section-head"><h2>Dados locais</h2></div><p class="hint">Suas refeições, seu perfil e os alimentos personalizados ficam neste computador. A exportação JSON permite recuperar o histórico em outra instalação do Nutra.</p><div class="form-actions">${button('Exportar meus dados','data-export','outline','download')}${button('Restaurar cópia','data-import','outline')}</div><input class="hidden" type="file" id="backup-input" accept=".json,application/json"></section></div>`;}
 
@@ -128,14 +156,36 @@ async function handleAnalysis(btn){
   if(!photoFile){error.textContent='Escolha uma foto primeiro.';return;}
   if(!$('#photo-consent').checked){error.textContent='Autorize o envio da foto para continuar.';return;}
   const id=++photoLoadId;btn.disabled=true;btn.textContent='Analisando…';
-  try{const data=await api('/api/analyze','POST',{image:await preparePhotoImage(photoFile),mimeType:'image/jpeg',consent:true});if(id!==photoLoadId||!dialog.open)return;const source=allFoods().filter(f=>f.complete!==false);photoItems=data.items.map(x=>{const matches=matchFoods(x.name,source);return {...x,matches,chosen:matches.find(f=>normalize(f.name)===normalize(x.name))?.id||''};});renderPhotoItems(data.notes||(!photoItems.length?'A IA não identificou alimentos. Tente outra foto ou use a busca manual.':''));}
-  catch(e){if(id===photoLoadId&&dialog.open)error.textContent=e.message;}
-  finally{if(id===photoLoadId&&dialog.open){btn.disabled=false;btn.innerHTML=ico('camera')+'Analisar foto';}}
+  try{
+    const customKey=localStorage.getItem('nutra_gemini_key')||'';
+    const headers=customKey?{'x-gemini-key':customKey}:{};
+    const data=await api('/api/analyze','POST',{image:await preparePhotoImage(photoFile),mimeType:'image/jpeg',consent:true},headers);
+    if(id!==photoLoadId||!dialog.open)return;
+    const source=allFoods().filter(f=>f.complete!==false);
+    photoItems=data.items.map(x=>{const matches=matchFoods(x.name,source);return {...x,matches,chosen:matches.find(f=>normalize(f.name)===normalize(x.name))?.id||''};});
+    renderPhotoItems(data.notes||(!photoItems.length?'A IA não identificou alimentos. Tente outra foto ou use a busca manual.':''));
+  }catch(e){
+    if(id===photoLoadId&&dialog.open)error.textContent=e.message;
+  }finally{
+    if(id===photoLoadId&&dialog.open){btn.disabled=false;btn.innerHTML=ico('camera')+'Analisar foto';}
+  }
 }
 function showConfirmation(title,text,action,label){openModal(title,`<p class="hint">${esc(text)}</p><div class="form-actions">${button(label,action,'primary','check')}${button('Cancelar','data-close','outline')}</div>`);}
 function closeModal(){dialog.close();resetPhoto();}
 function reopenIfEdited(next,date){snapshot(next,date).closed=false;}
-function setPage(p){page=p;render();window.scrollTo(0,0);}
+function setPage(p){
+  if(page==='goals'){
+    const f=$('#profile-form');
+    if(f){
+      try{
+        const prof=readProfileForm(f);
+        saveProfileToState(state,prof,localDate());
+        api('/api/state','PUT',state).catch(()=>{});
+      }catch{}
+    }
+  }
+  page=p;render();window.scrollTo(0,0);
+}
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;const d=b.dataset;
   try{
@@ -187,7 +237,12 @@ document.addEventListener('submit',async e=>{
     if(f.id==='session-form'){await api('/api/session','POST',{password:v.get('password')});config=await api('/api/config');render();notify('Análise de fotos liberada.');}
     else if(f.id==='profile-form'){
       clearTimeout(profileTimer);profileRevision++;const p=readProfileForm(f);
-      const targets=calculateTargets(p);await mutate(s=>saveProfileToState(s,p,localDate()));selectedDate=localDate();setPage('diary');notify(targets.blocked?'Perfil salvo. Confira a orientação sobre sua meta.':'Perfil salvo. Suas metas já foram calculadas.');
+      const targets=calculateTargets(p);await mutate(s=>saveProfileToState(s,p,localDate()));selectedDate=localDate();setPage('diary');notify(targets.reason?'Perfil salvo. Confira a orientação sobre sua meta.':'Perfil salvo. Suas metas já foram calculadas.');
+    }else if(f.id==='cloud-config-form'){
+      const key=String(v.get('key')||'').trim();
+      if(key)localStorage.setItem('nutra_gemini_key',key);
+      else localStorage.removeItem('nutra_gemini_key');
+      render();notify('Chave salva no navegador.');
     }else if(f.id==='config-form'){
       config=await api('/api/config','POST',{key:v.get('key'),model:String(v.get('model')).trim()});render();notify('Chave salva localmente.');
     }else if(f.id==='custom-form'){

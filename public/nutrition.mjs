@@ -25,21 +25,32 @@ export function validateProfile(p) {
 export function calculateTargets(input) {
   const p = validateProfile(input);
   const bmi = p.weight / ((p.height / 100) ** 2);
-  const blocked = p.specialCare || bmi < 18.5;
+  const blocked = Boolean(p.specialCare || bmi < 18.5);
   // Mifflin–St Jeor estimates resting energy expenditure, not measured BMR.
   const resting = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === 'male' ? 5 : -161);
   const expenditure = resting * ACTIVITY[p.activity].factor;
-  if (blocked) return { blocked: true, reason: p.specialCare ? 'Use metas definidas com um profissional. O diário continua disponível.' : 'Com este peso e altura, a meta automática precisa de avaliação profissional. O diário continua disponível.' };
-  const proposed = p.goal === 'lose' ? expenditure - Math.min(expenditure * .15, 500) : p.goal === 'gain' ? expenditure + Math.min(expenditure * .08, 300) : expenditure;
+  let reason = '';
+  if (p.specialCare) {
+    reason = 'Use metas definidas com um profissional. O diário continua disponível.';
+  } else if (bmi < 18.5) {
+    reason = 'Com este peso e altura, a meta automática precisa de avaliação profissional. O diário continua disponível.';
+  }
   // Product guardrails, not claims that these thresholds are safe for everyone.
   const floor = p.sex === 'male' ? 1500 : 1200;
-  if (proposed < floor || proposed > 5000) return { blocked: true, reason: 'A estimativa ficou fora da faixa automática do app. Defina sua meta com um nutricionista.' };
-  const calories = Math.round(proposed);
+  const proposed = p.goal === 'lose' ? expenditure - Math.min(expenditure * .15, 500) : p.goal === 'gain' ? expenditure + Math.min(expenditure * .08, 300) : expenditure;
+  let outOfRange = false;
+  if (proposed < floor || proposed > 5000) {
+    outOfRange = true;
+    if (!reason) reason = 'A estimativa ficou fora da faixa automática do app. Defina sua meta com um nutricionista.';
+  }
+  const isBlocked = blocked || outOfRange;
+  const safeProposed = Math.max(floor, Math.min(5000, proposed));
+  const calories = Math.round(isBlocked && !proposed ? safeProposed : proposed);
   const proteinFactor = p.goal === 'maintain' ? 1.2 : 1.6;
   const protein = Math.min(p.weight * proteinFactor, calories * .35 / 4);
   const fat = calories * .30 / 9;
   const carbs = (calories - protein * 4 - fat * 9) / 4;
-  return { blocked: false, resting: Math.round(resting), expenditure: Math.round(expenditure), calories, protein, fat, carbs, adjustment: Math.round(proposed - expenditure), factor: ACTIVITY[p.activity].factor, proteinCapped: protein < p.weight * proteinFactor, bmi };
+  return { blocked: isBlocked, reason: isBlocked ? reason : undefined, resting: Math.round(resting), expenditure: Math.round(expenditure), calories: Math.round(calories), protein, fat, carbs, adjustment: Math.round(proposed - expenditure), factor: ACTIVITY[p.activity].factor, proteinCapped: protein < p.weight * proteinFactor, bmi };
 }
 export function validateFood(f) {
   if (!f || typeof f !== 'object' || typeof f.name !== 'string' || !f.name.trim()) throw new Error('Informe o nome do alimento.');
@@ -84,12 +95,13 @@ export function validateState(s) {
   return {version:1, profile, entries, customFoods, water, weights, days};
 }
 export function dailyBalance(consumed, targets, closed=false, hasEntries=true) {
-  if(!targets || targets.blocked) return {status:'no-target',label:'Sem meta calculada'};
+  if(!targets || (!targets.expenditure && targets.blocked)) return {status:'no-target',label:'Sem meta calculada'};
   if(!hasEntries) return {status:'empty',label:'Sem registros alimentares'};
-  const difference = consumed - targets.expenditure;
+  const expenditure = targets.expenditure || targets.calories;
+  const difference = consumed - expenditure;
   const status = Math.abs(difference) <= 50 ? 'maintenance' : difference < 0 ? 'deficit' : 'surplus';
   const labels = {deficit:'Déficit estimado',maintenance:'Próximo à manutenção',surplus:'Superávit estimado'};
-  return {status,label:(closed ? '' : 'Projeção: ')+labels[status],difference,remaining:targets.calories-consumed,margin:targets.expenditure-consumed,closed};
+  return {status,label:(closed ? '' : 'Projeção: ')+labels[status],difference,remaining:(targets.calories||expenditure)-consumed,margin:expenditure-consumed,closed};
 }
 export function matchFoods(name, foods, limit=8) {
   const q = normalize(name); const tokens = q.split(' ').filter(t=>t.length>1);

@@ -40,7 +40,14 @@ test('perfil aceita vírgula decimal e altura em metros como no teclado do iPhon
   const parsed=profileFromValues({...profile,age:'30',weight:'80,5',height:'1,80'});
   assert.equal(parsed.weight,80.5);assert.equal(parsed.height,180);
   assert.equal(profileFromValues({...profile,age:'30',weight:'80.5',height:'180'}).height,180);
+  assert.equal(profileFromValues({...profile,age:'30',weight:'80,5 kg',height:'1,75 m'}).height,175);
   assert.ok(calculateTargets(parsed).calories>0);
+});
+test('perfil com cuidado especial ainda calcula metas orientativas',()=>{
+  const special=calculateTargets({...profile,specialCare:true});
+  assert.equal(special.blocked,true);
+  assert.ok(special.calories>0);
+  assert.ok(special.reason.includes('Use metas'));
 });
 test('medidas incompletas ou inválidas não viram perfil salvo',()=>{
   assert.throws(()=>profileFromValues({...profile,weight:'',height:'1,80'}),/Peso/);
