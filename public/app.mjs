@@ -145,11 +145,39 @@ function updatePortion(){const form=$('#add-form');if(!form)return;const e=state
 function customModal(){openModal('Cadastrar alimento',`<form id="custom-form"><p class="hint">Use os valores por 100 g do rótulo. Depois você escolhe quantos gramas comeu.</p><div class="formgrid top-gap"><label class="field full">Nome<input name="name" required maxlength="150" placeholder="Ex.: Iogurte natural da marca X"></label>${[['calories','Calorias (kcal)',1000],['protein','Proteínas (g)',100],['carbs','Carboidratos (g)',100],['fat','Gorduras (g)',100]].map(([k,label,max])=>`<label class="field">${label}<input name="${k}" type="number" min="0" max="${max}" step=".01" required></label>`).join('')}</div><div class="form-actions"><button class="btn primary" type="submit">Salvar alimento</button></div><p class="messages" id="custom-error" role="alert"></p></form>`);}
 function resetPhoto(){photoLoadId++;if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl='';photoFile=null;photoItems=[];}
 function updatePhoto(){if($('#photo-preview'))$('#photo-preview').innerHTML=photoUrl?`<img class="photo-preview" src="${photoUrl}" alt="Prévia da refeição para análise">`:'';renderPhotoItems();}
+function makeFoodFromAi(item){
+  const g=(typeof item.grams==='number'&&item.grams>0)?item.grams:100;
+  const factor=100/g;
+  let cal=(item.calories!=null&&item.calories>0)?item.calories*factor:0;
+  let pro=(item.protein!=null&&item.protein>0)?item.protein*factor:0;
+  let car=(item.carbs!=null&&item.carbs>0)?item.carbs*factor:0;
+  let fat=(item.fat!=null&&item.fat>0)?item.fat*factor:0;
+  if(cal===0&&pro===0&&car===0&&fat===0){
+    const matches=matchFoods(item.name,allFoods().filter(f=>f.complete!==false));
+    if(matches&&matches.length>0){
+      const best=matches[0];
+      return {id:'ai-'+crypto.randomUUID(),name:item.name||best.name,category:'Identificado por IA',source:'Estimativa por foto',calories:best.calories,protein:best.protein,carbs:best.carbs,fat:best.fat,fiber:best.fiber??null};
+    }
+    cal=120;car=15;pro=5;fat=2;
+  }
+  let calories=Math.min(1000,Math.max(0,Math.round(cal)));
+  let protein=Math.min(100,Math.max(0,Math.round(pro*10)/10));
+  let carbs=Math.min(100,Math.max(0,Math.round(car*10)/10));
+  let fatVal=Math.min(100,Math.max(0,Math.round(fat*10)/10));
+  const sum=protein+carbs+fatVal;
+  if(sum>100){
+    protein=Math.round((protein/sum)*95*10)/10;
+    carbs=Math.round((carbs/sum)*95*10)/10;
+    fatVal=Math.round((fatVal/sum)*95*10)/10;
+  }
+  if(calories===0)calories=Math.round(protein*4+carbs*4+fatVal*9);
+  return validateFood({id:'ai-'+crypto.randomUUID(),name:String(item.name||'Alimento').trim().slice(0,150),category:'Identificado por IA',source:'Estimativa por foto',calories,protein,carbs,fat:fatVal,fiber:null});
+}
 function renderPhotoItems(notes=''){
   const out=$('#photo-results');if(!out)return;if(!photoItems.length){out.innerHTML=notes?`<p class="notice top-gap">${esc(notes)}</p>`:'';return;}
-  out.innerHTML=`<section class="separator"><h3>Confira os alimentos e as quantidades</h3><p class="hint top-gap">Os pesos foram estimados pela foto. Escolha a opção da TACO que corresponde ao preparo e corrija as porções. Cadastre manualmente óleo, molhos ou ingredientes que a imagem não mostrou.</p>${notes?`<p class="notice top-gap">${esc(notes)}</p>`:''}<form id="photo-review">${photoItems.map((item,i)=>`<div class="photo-row" data-photo-row="${i}"><div class="detected">${esc(item.name)} <span class="badge">Confiança ${({high:'alta',medium:'média',low:'baixa'})[item.confidence]}</span></div><label class="field">Alimento correspondente<select name="f${i}" required><option value="">Selecione ou busque abaixo</option>${item.matches.map(f=>`<option value="${esc(f.id)}" ${f.id===item.chosen?'selected':''}>${esc(f.name)}</option>`).join('')}</select></label><label class="field">Gramas<input type="number" name="g${i}" required min=".1" max="5000" step=".1" value="${item.grams}"></label>${iconButton('Remover da revisão',`data-photo-remove="${i}"`,'trash')}<label class="field hint">Buscar outra opção<input type="search" data-photo-search="${i}" placeholder="Nome ou preparo do alimento" value="${esc(item.query||'')}"></label>${item.notes?`<p class="hint">${esc(item.notes)}</p>`:''}<p class="hint" data-photo-macros="${i}"></p></div>`).join('')}<div class="form-actions"><button class="btn primary" type="submit">${ico('check')}Salvar alimentos revisados</button></div></form></section>`;photoItems.forEach((_,i)=>showPhotoMacros(i));
+  out.innerHTML=`<section class="separator"><h3>Confira os alimentos e as quantidades</h3><p class="hint top-gap">Os alimentos, porções e valores nutricionais foram medidos e calculados pela IA com base na foto. Você pode ajustar o nome ou os gramas antes de salvar.</p>${notes?`<p class="notice top-gap">${esc(notes)}</p>`:''}<form id="photo-review">${photoItems.map((item,i)=>`<div class="photo-row" data-photo-row="${i}"><div class="detected">${esc(item.food.name)} <span class="badge">Confiança ${({high:'alta',medium:'média',low:'baixa'})[item.confidence]||'média'}</span></div><label class="field">Alimento<input type="text" name="n${i}" required maxlength="150" value="${esc(item.food.name)}"></label><label class="field">Gramas<input type="number" name="g${i}" required min=".1" max="5000" step=".1" value="${item.grams}"></label>${iconButton('Remover da revisão',`data-photo-remove="${i}"`,'trash')}${item.notes?`<p class="hint">${esc(item.notes)}</p>`:''}<p class="hint" data-photo-macros="${i}"></p></div>`).join('')}<div class="form-actions"><button class="btn primary" type="submit">${ico('check')}Salvar refeição no diário</button></div></form></section>`;photoItems.forEach((_,i)=>showPhotoMacros(i));
 }
-function showPhotoMacros(i){const item=photoItems[i],f=allFoods().find(f=>f.id===item?.chosen),el=$(`[data-photo-macros="${i}"]`);if(!el)return;try{const n=portion(f,item.grams);el.textContent=`${fmt(n.calories)} kcal · P ${fmt(n.protein,1)} g · C ${fmt(n.carbs,1)} g · G ${fmt(n.fat,1)} g`;}catch{el.textContent='Selecione um alimento e informe o peso.';}}
+function showPhotoMacros(i){const item=photoItems[i],el=$(`[data-photo-macros="${i}"]`);if(!el||!item||!item.food)return;try{const n=portion(item.food,item.grams);el.textContent=`${fmt(n.calories)} kcal · P ${fmt(n.protein,1)} g · C ${fmt(n.carbs,1)} g · G ${fmt(n.fat,1)} g`;}catch{el.textContent='Informe um peso válido.';}}
 async function handleAnalysis(btn){
   const error=$('#photo-error');error.textContent='';
   if(!config.configured){error.textContent='Configure o Gemini em Ajustes para analisar fotos.';return;}
@@ -161,9 +189,8 @@ async function handleAnalysis(btn){
     const headers=customKey?{'x-gemini-key':customKey}:{};
     const data=await api('/api/analyze','POST',{image:await preparePhotoImage(photoFile),mimeType:'image/jpeg',consent:true},headers);
     if(id!==photoLoadId||!dialog.open)return;
-    const source=allFoods().filter(f=>f.complete!==false);
-    photoItems=data.items.map(x=>{const matches=matchFoods(x.name,source);return {...x,matches,chosen:matches.find(f=>normalize(f.name)===normalize(x.name))?.id||''};});
-    renderPhotoItems(data.notes||(!photoItems.length?'A IA não identificou alimentos. Tente outra foto ou use a busca manual.':''));
+    photoItems=data.items.map(x=>({...x,food:makeFoodFromAi(x)}));
+    renderPhotoItems(data.notes||(!photoItems.length?'A IA não identificou alimentos na foto. Tente outra imagem.':''));
   }catch(e){
     if(id===photoLoadId&&dialog.open)error.textContent=e.message;
   }finally{
@@ -219,8 +246,8 @@ document.addEventListener('input',e=>{
   if(x.id==='food-query'){foodQuery=x.value;foodPage=0;renderFoods();}
   if(x.id==='add-query')renderAddResults();
   if(x.name==='grams'&&x.closest('#add-form'))updatePortion();
-  if('photoSearch'in x.dataset){const i=Number(x.dataset.photoSearch),it=photoItems[i];it.query=x.value;it.matches=searchFoods(x.value,allFoods().filter(f=>f.complete!==false),12);it.chosen='';const sel=$('#photo-review').elements['f'+i];sel.innerHTML=`<option value="">${it.matches.length?'Selecione o alimento':'Sem resultados'}</option>`+it.matches.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');showPhotoMacros(i);}
   if(x.closest('#photo-review')&&/^g\d+$/.test(x.name)){const i=Number(x.name.slice(1));photoItems[i].grams=x.valueAsNumber;showPhotoMacros(i);}
+  if(x.closest('#photo-review')&&/^n\d+$/.test(x.name)){const i=Number(x.name.slice(1));if(photoItems[i]?.food){photoItems[i].food.name=x.value.trim()||photoItems[i].food.name;}}
 });
 document.addEventListener('change',async e=>{
   const x=e.target;
@@ -228,7 +255,6 @@ document.addEventListener('change',async e=>{
   if(x.id==='diary-date'&&normalizeDates(x.value)){selectedDate=x.value;render();}
   if(x.id==='food-category'){foodCategory=x.value;foodPage=0;renderFoods();}
   if(['photo-file','photo-camera'].includes(x.id)&&x.files[0]){resetPhoto();photoFile=x.files[0];photoUrl=URL.createObjectURL(photoFile);$('#photo-error').textContent='';updatePhoto();const b=$('[data-analyze]');b.disabled=false;b.innerHTML=ico('camera')+'Analisar foto';}
-  if(x.closest('#photo-review')&&/^f\d+$/.test(x.name)){const i=Number(x.name.slice(1));photoItems[i].chosen=x.value;showPhotoMacros(i);}
   if(x.id==='backup-input'&&x.files[0]){try{if(x.files[0].size>8*1024*1024)throw new Error('Cópia acima de 8 MB.');const restored=validateState(JSON.parse(await x.files[0].text()));if(!window.confirm('Substituir os dados locais pelo conteúdo desta cópia?'))return;await mutate(s=>Object.assign(s,restored));notify('Cópia restaurada.');}catch(err){notify(err.message);}finally{x.value='';}}
 });
 document.addEventListener('submit',async e=>{
@@ -253,7 +279,15 @@ document.addEventListener('submit',async e=>{
       await mutate(s=>{if(original)s.entries=s.entries.map(e=>e.id===item.id?item:e);else s.entries.push(item);reopenIfEdited(s,item.date);});closeModal();setPage('diary');notify(original?'Registro atualizado.':'Alimento registrado.');
     }else if(f.id==='photo-review'){
       const meal=$('#photo-meal').value,date=selectedDate;
-      const items=photoItems.map((p,i)=>{const food=allFoods().find(x=>x.id===v.get('f'+i)&&x.complete!==false);if(!food)throw new Error('Escolha uma opção da base para cada alimento.');const grams=f.elements['g'+i].valueAsNumber;portion(food,grams);return {id:crypto.randomUUID(),date,meal,food,grams,viaPhoto:true};});
+      if(!photoItems.length)throw new Error('Nenhum alimento na lista.');
+      const items=photoItems.map((p,i)=>{
+        const nameVal=f.elements['n'+i]?.value?.trim();
+        if(nameVal)p.food.name=nameVal.slice(0,150);
+        const grams=f.elements['g'+i]?.valueAsNumber||p.grams;
+        const food=validateFood(p.food);
+        portion(food,grams);
+        return {id:crypto.randomUUID(),date,meal,food,grams,viaPhoto:true};
+      });
       await mutate(s=>{s.entries.push(...items);reopenIfEdited(s,date);});closeModal();setPage('diary');notify('Refeição salva no diário.');
     }
   }catch(err){const element=$('.messages',f)||$('#photo-error');if(element)element.textContent=err.message;else notify(err.message);}
