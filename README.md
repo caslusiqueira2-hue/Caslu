@@ -53,3 +53,9 @@ O modelo padrão é `gemini-3.1-flash-lite`, com [opção de uso gratuito](https
 O servidor salva o histórico em `data/state.json` e mantém a revisão anterior em `data/state.previous.json`. Em **Ajustes**, o backup pode ser exportado ou restaurado. A instalação é para uso pessoal em um único computador e não oferece contas ou sincronização.
 
 Para rodar os testes: `npm test` (ou `node --test`). Para reconstruir o catálogo, extraia `data/taco-api-estatica.zip` em `data/taco-extraido` e execute `node scripts/import-taco.mjs`.
+
+## iPhone e tela inicial
+
+O layout se adapta a celulares, tablets e computadores. A navegação inferior reserva a área de gestos do iPhone, os campos móveis usam fonte de 16 px e as janelas acompanham o espaço disponível na tela. Foram conferidas as cinco páginas em nove tamanhos de viewport, de 320 a 1440 px, com telas na vertical e na horizontal. A conferência usa emulação no navegador, sem teste em um iPhone físico.
+
+Para adicionar no iPhone, abra o site no Safari, toque em Compartilhar e escolha Adicionar à Tela de Início. O nome será Nutra, com ícone próprio. O manifest configura a abertura em modo de aplicativo. A instalação não inclui funcionamento offline. Antes de substituir um atalho antigo ou mudar de navegador, exporte uma cópia do diário em Ajustes.

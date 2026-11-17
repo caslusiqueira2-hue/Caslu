@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "Nutra · Diário alimentar",
+  "short_name": "Nutra",
+  "lang": "pt-BR",
+  "description": "Seu diário alimentar com metas, calorias e macros.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f4ee",
+  "theme_color": "#f5f4ee",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

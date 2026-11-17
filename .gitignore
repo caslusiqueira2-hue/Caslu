@@ -8,3 +8,6 @@ data/taco-extraido/
 test/prato-teste.png
 node_modules/
 *.log
+
+/public/icons/icon-original.png
+/public/icons/icon-source.png
