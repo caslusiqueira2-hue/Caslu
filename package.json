@@ -1,0 +1,9 @@
+{
+  "name": "nutra",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Diário alimentar com TACO, histórico diário e análise de fotos pelo Gemini",
+  "scripts": { "start": "node server.mjs", "build": "node scripts/verify-build.mjs", "test": "node --test", "import:taco": "node scripts/import-taco.mjs" },
+  "engines": { "node": "22.x" }
+}

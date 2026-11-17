@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f4ee"><meta name="description" content="Registre suas refeições e acompanhe suas metas com o diário alimentar Nutra.">
+  <title>Nutra | Diário alimentar</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/style.css"><script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <aside class="rail" aria-label="Navegação principal">
+    <button class="brand" data-page="diary"><img src="/icon.svg" width="38" height="38" alt=""><span>nutra<span class="brand-dot">.</span><small>DIÁRIO ALIMENTAR</small></span></button>
+    <div class="rail-label">ACOMPANHAMENTO</div>
+    <nav id="nav"></nav>
+    <div class="rail-foot"><span class="live-dot"></span><div><b>Modo local</b><small>Dados neste computador</small></div></div>
+  </aside>
+  <main id="main"><div id="view" aria-live="polite"><p class="muted">Abrindo o diário…</p></div></main>
+  <dialog id="modal" aria-labelledby="dialog-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

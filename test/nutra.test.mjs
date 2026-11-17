@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { readFile, mkdtemp, rm, unlink, rmdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { createLocalServer } from '../local-server.mjs';
+import path from 'node:path';
+import os from 'node:os';
+import { EMPTY_STATE, calculateTargets, dailyBalance, matchFoods, portion, total, validateState, validateFood } from '../public/nutrition.mjs';
+const profile={name:'Pessoa teste',age:30,weight:80,height:180,sex:'male',activity:'moderate',goal:'lose',specialCare:false};
+const catalog=JSON.parse(await readFile(new URL('../public/data/foods.json',import.meta.url),'utf8')).foods;
+const food=catalog.find(f=>f.id==='taco-3');
+const date='2026-11-17';
+test('a base contém os 597 alimentos; arroz cozido tem cerca de 128 kcal por 100 g',()=>{
+  assert.equal(catalog.length,597);assert.equal(new Set(catalog.map(f=>f.id)).size,597);
+  assert.equal(catalog.filter(f=>f.complete).length,590);
+  assert.doesNotThrow(()=>catalog.filter(f=>f.complete).forEach(validateFood));
+  assert.equal(Math.round(food.calories),128);assert.equal(Math.round(portion(food,150).calories),192);
+  assert.match(matchFoods('arroz tipo 1 cozido',catalog)[0].name,/tipo 1, cozido/);
+  const prepared={date,food,meal:'Almoço',id:'1',grams:100};assert.equal(Math.round(total([prepared,{...prepared,grams:50}]).calories),192);
+});
+test('Mifflin e metas diferenciam manutenção e objetivo',()=>{
+  const t=calculateTargets(profile);assert.equal(t.resting,1780);assert.equal(t.expenditure,2759);assert.equal(t.calories,2345);
+  assert.ok(Math.abs(t.protein*4+t.fat*9+t.carbs*4-t.calories)<1e-8);
+  assert.equal(calculateTargets({...profile,goal:'maintain'}).calories,2759);
+  assert.equal(calculateTargets({...profile,goal:'gain'}).calories,2980);
+  assert.equal(calculateTargets({...profile,specialCare:true}).blocked,true);
+  assert.equal(calculateTargets({...profile,weight:40}).blocked,true);
+  assert.throws(()=>calculateTargets({...profile,age:16}),/Idade/);
+});
+test('saldo usa gasto estimado e preserva situações de dia aberto, fechado e sem registros',()=>{
+  const t=calculateTargets(profile);let b=dailyBalance(2450,t,false,true);
+  assert.equal(b.status,'deficit');assert.equal(b.remaining,-105);assert.equal(b.margin,309);assert.match(b.label,/Projeção/);
+  assert.equal(dailyBalance(2450,t,true,true).label,'Déficit estimado');
+  assert.equal(dailyBalance(2750,t,true,true).status,'maintenance');
+  assert.equal(dailyBalance(3000,t,true,true).status,'surplus');
+  assert.equal(dailyBalance(0,t,false,false).status,'empty');
+});
+test('perfil diário antigo é preservado no backup e refeições com datas inválidas são rejeitadas',()=>{
+  const s={...structuredClone(EMPTY_STATE),profile:{...profile,weight:90},days:{[date]:{closed:true,profile}},entries:[{id:'1',date,food,meal:'Almoço',grams:150}]};
+  const safe=validateState(s);assert.equal(safe.days[date].profile.weight,80);assert.equal(safe.profile.weight,90);
+  assert.throws(()=>validateState({...s,entries:[{...s.entries[0],date:'2026-02-31'}]}),/Registro/);
+});
+test('API local salva e lê o histórico e bloqueia origens externas e análise sem consentimento',async(t)=>{
+  const temp=await mkdtemp(path.join(os.tmpdir(),'nutra-test-'));
+  const stateFile=path.join(temp,'state.json');
+  const server=createLocalServer({directory:fileURLToPath(new URL('..',import.meta.url)),stateFile,envFile:path.join(temp,'.env'),port:0});
+  await new Promise((resolve,reject)=>server.once('error',reject).listen(0,'127.0.0.1',resolve));
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));await rm(stateFile,{force:true});await rmdir(temp);});
+  const origin=`http://127.0.0.1:${server.address().port}`;
+  const state={...structuredClone(EMPTY_STATE),profile,entries:[{id:'1',date,food,meal:'Almoço',grams:125,viaPhoto:false}],days:{[date]:{closed:true,profile}}};
+  const send=(endpoint,method,data,headers={})=>fetch(origin+endpoint,{method,headers:{'content-type':'application/json',...headers},body:JSON.stringify(data)});
+  assert.equal((await send('/api/state','PUT',state)).status,200);
+  const disk=JSON.parse(await readFile(stateFile,'utf8'));assert.equal(disk.entries[0].grams,125);
+  const retrieved=await (await fetch(origin+'/api/state')).json();assert.equal(retrieved.days[date].closed,true);
+  assert.equal((await fetch(origin+'/')).status,200);
+  assert.equal((await fetch(origin+'/.env')).status,404);
+  assert.equal((await send('/api/state','PUT',state,{origin:'https://external.test'})).status,403);
+  assert.equal((await send('/api/analyze','POST',{consent:false})).status,400);
+  const config=await (await fetch(origin+'/api/config')).json();assert.equal('key' in config,false);
+});

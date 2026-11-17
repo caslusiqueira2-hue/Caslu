@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.vercel/
+data/state*.json
+data/*.tmp
+data/taco-extraido/
+test/prato-teste.png
+node_modules/
+*.log
