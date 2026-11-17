@@ -215,77 +215,73 @@ dialog {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
-/* Personalized daily intake and explicit macro budgets. */
-.plan-intro { margin-bottom: 14px; }
-.plan-intro .section-head { margin-bottom: 9px; align-items: start; }
-.plan-intro h2 { font-size: 1.35rem; line-height: 1.3; letter-spacing: -.035em; margin-top: 5px; overflow-wrap: anywhere; }
-.plan-intro > p { font-size: .9rem; line-height: 1.65; color: var(--muted); }
-.plan-intro > p strong { color: var(--ink); }
-.plan-intro .plan-profile { margin-top: 9px; font-size: .8rem; color: #526447; }
-.daily-macros { margin-top: 0; }
-.goal-macro .amount { font-size: 1.75rem; margin-bottom: 10px; }
-.goal-macro .amount small { font-size: .78rem; }
-.macro-details { margin: 0 0 12px; display: grid; gap: 7px; font-size: .77rem; }
-.macro-details > div { display: flex; flex-wrap: wrap; gap: 2px 8px; justify-content: space-between; align-items: baseline; }
-.macro-details dt { color: var(--muted); }
-.macro-details dd { margin: 0; font-weight: 760; white-space: nowrap; }
-.macro-remaining dd { color: #3e622b; }
-.macro-above dd { color: #8a502b; }
-.macro-energy { margin-top: 9px; font-size: .72rem; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
-@media (max-width: 600px) {
-  .plan-intro .section-head { gap: 6px; }
-  .plan-intro h2 { font-size: 1.18rem; }
-  .plan-intro > p { font-size: .87rem; }
-  .daily-macros { grid-template-columns: minmax(0,1fr); gap: 9px; }
-  .goal-macro { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px 12px; padding: 14px; }
-  .goal-macro .macro-head { font-size: .9rem; grid-column: 1; align-self: start; padding-top: 3px; }
-  .goal-macro .amount { grid-column: 2; grid-row: 1; text-align: right; font-size: 1.5rem; margin: 0; line-height: 1.2; }
-  .goal-macro .amount small { display: block; margin-top: 2px; font-size: .72rem; }
-  .goal-macro .macro-details { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); margin: 6px 0 5px; gap: 8px; font-size: .8rem; }
-  .goal-macro .macro-details > div { display: grid; gap: 3px; justify-content: start; }
-  .goal-macro .macro-details dd { font-size: .94rem; }
-  .goal-macro .bar, .goal-macro .macro-energy { grid-column: 1 / -1; }
-  .goal-macro .macro-energy { margin-top: 3px; font-size: .74rem; }
-}
 
-
-/* Daily targets and remaining intake stay together in the first green panel. */
-.daily-budget-panel { margin: 0 0 18px; padding: 22px; background:#223b2b; color:#f6faed; }
+/* Calorie dial and nutrient progress in the first summary. */
+.daily-budget-panel { margin:0 0 18px; padding:24px; background:#223b2b; color:#f6faed; }
 .budget-panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-.budget-panel-head h2 { color:#f6faed; font-size:1.45rem; line-height:1.2; margin:6px 0 0; letter-spacing:-.035em; }
+.budget-panel-head h2 { color:#f6faed; font-size:1.5rem; line-height:1.2; margin:6px 0 0; letter-spacing:-.035em; }
 .daily-budget-panel .eyebrow { color:#c8e3a2; }
 .budget-profile { color:#e9f8d7; border:1px solid #6f8566; background:transparent; flex-shrink:0; font-size:.8rem; min-height:44px; }
 .budget-profile:hover { background:#354f37; }
-.daily-budget-panel .budget-panel-intro { color:#d7e2cd; font-size:.85rem; line-height:1.5; margin:12px 0 16px; }
-.daily-budget-table { width:100%; border-collapse:collapse; table-layout:fixed; }
-.daily-budget-table th, .daily-budget-table td { padding:14px 10px; text-align:right; vertical-align:middle; border-bottom:1px solid #476044; overflow-wrap:anywhere; }
-.daily-budget-table thead th { font-size:.78rem; font-weight:550; color:#d7e2cd; line-height:1.35; padding-top:0; padding-bottom:10px; }
-.daily-budget-table th:first-child { width:28%; text-align:left; padding-left:12px; }
-.daily-budget-table tbody th { font-size:1rem; font-weight:650; }
-.daily-budget-table td strong { font-size:1.35rem; font-weight:780; line-height:1.25; font-variant-numeric:tabular-nums; }
-.daily-budget-table td small { display:block; color:#d7e2cd; font-size:.73rem; margin-top:2px; }
-.daily-budget-table .budget-left strong { color:#cdf476; }
-.daily-budget-table .calorie-row { background:#304e31; }
-.daily-budget-table .calorie-row th { border-left:3px solid #c8ef77; padding-left:9px; }
-.daily-budget-table .calorie-row strong { font-size:1.75rem; }
-.daily-budget-table .budget-exceeded strong { color:#ffc69f; }
-.budget-excess-label { display:block; color:#ffd5b7; font-size:.68rem; line-height:1.2; margin-top:4px; }
-.budget-undefined { font-size:.85rem; color:#d7e2cd; }
-.daily-budget-panel .budget-panel-foot { margin:12px 0 0; color:#c4d3bb; font-size:.74rem; line-height:1.45; }
+.daily-budget-panel .budget-panel-intro { color:#d7e2cd; font-size:.85rem; line-height:1.5; margin:9px 0 14px; }
+.energy-infographic { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:20px; max-width:620px; margin:0 auto; padding:6px 0; }
+.energy-stat { display:flex; flex-direction:column; text-align:center; align-items:center; gap:4px; min-width:0; }
+.energy-stat > span { color:#cfddc8; font-size:.8rem; }
+.energy-stat > strong { font-size:1.7rem; line-height:1.2; font-variant-numeric:tabular-nums; }
+.energy-stat > small { color:#cfddc8; font-size:.75rem; }
+.energy-stat .energy-placeholder { font-size:.9rem; }
+.calorie-dial { position:relative; display:grid; place-items:center; width:190px; aspect-ratio:1; border-radius:50%; background:conic-gradient(from 0deg,#d0f575 var(--progress),#466249 0); box-shadow:0 0 28px #c4f8790b; }
+.calorie-dial::before { content:""; position:absolute; inset:8px; background:#223b2b; border-radius:50%; }
+.dial-content { position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; padding:12px; }
+.dial-content > strong { color:#d0f575; font-size:3.2rem; line-height:1; letter-spacing:-.055em; font-variant-numeric:tabular-nums; }
+.dial-content > span { color:#e1ecd7; font-size:.83rem; line-height:1.35; }
+.dial-exceeded { background:conic-gradient(#ffc59c 100%,#466249 0); }
+.dial-exceeded .dial-content > strong { color:#ffc59c; }
+.dial-content .dial-empty { font-size:1.05rem; font-weight:650; }
+.daily-budget-panel .energy-caption { text-align:center; font-size:.75rem; color:#cfddc8; margin:8px 0 18px; }
+.nutrient-infographics { display:grid; gap:16px; border-top:1px solid #456047; padding-top:18px; }
+.nutrient-heading { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.nutrient-heading h3 { display:flex; align-items:center; gap:7px; margin:0; font-size:.95rem; font-weight:650; }
+.nutrient-heading h3 i { width:7px; height:7px; background:var(--nutrient-color); border-radius:50%; }
+.nutrient-remaining { font-size:.8rem; color:#d9e9cc; }
+.nutrient-remaining b { color:#f8ffed; font-size:.95rem; margin-left:4px; }
+.nutrient-bar { height:8px; background:#426047; border-radius:20px; overflow:hidden; margin:8px 0 6px; }
+.nutrient-bar i { display:block; height:100%; border-radius:inherit; background:var(--nutrient-color); transition:width .35s ease; }
+.nutrient-values { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:.75rem; color:#c8d8bf; }
+.nutrient-values b { color:#f4faeb; margin-left:4px; font-weight:650; }
+.nutrient-exceeded .nutrient-remaining, .nutrient-exceeded .nutrient-remaining b { color:#ffd0ad; }
+.daily-budget-panel .budget-panel-foot { margin:16px 0 0; font-size:.7rem; line-height:1.4; color:#bed0b4; }
+.daily-budget-panel .budget-alert { background:#355038; color:#eef5e6; border-radius:10px; padding:12px; margin:10px 0 18px; font-size:.85rem; line-height:1.5; }
 .diary-balance { margin:18px 0; }
+@media (min-width:1000px) {
+  .infographic-panel { display:grid; grid-template-columns:1fr 1fr; column-gap:32px; }
+  .budget-panel-head, .budget-panel-intro, .budget-panel-foot { grid-column:1 / -1; }
+  .energy-infographic { grid-column:1; grid-row:3; width:100%; gap:10px; }
+  .energy-caption { grid-column:1; grid-row:4; }
+  .nutrient-infographics { grid-column:2; grid-row:3 / 5; border-top:0; border-left:1px solid #456047; padding:10px 0 0 30px; align-content:center; }
+  .budget-alert { grid-column:1; }
+}
 @media (max-width:600px) {
-  .daily-budget-panel { padding:16px 12px; border-radius:18px; }
-  .budget-panel-head { flex-wrap:wrap; gap:8px; }
-  .budget-panel-head h2 { font-size:1.18rem; }
-  .budget-profile { min-height:44px; padding:8px 10px; font-size:.76rem; }
-  .daily-budget-panel .budget-panel-intro { font-size:.78rem; margin:8px 0 14px; }
-  .daily-budget-table th, .daily-budget-table td { padding:10px 4px; }
-  .daily-budget-table th:first-child { width:30%; padding-left:6px; }
-  .daily-budget-table tbody th { font-size:.8rem; }
-  .daily-budget-table thead th { font-size:.68rem; }
-  .daily-budget-table td strong { font-size:1rem; }
-  .daily-budget-table .calorie-row strong { font-size:1.15rem; }
-  .daily-budget-table .calorie-row th { padding-left:3px; }
-  .daily-budget-table td small { font-size:.65rem; }
-  .daily-budget-panel .budget-panel-foot { font-size:.68rem; }
+  .daily-budget-panel { padding:18px 14px; border-radius:20px; }
+  .budget-panel-head { gap:8px; align-items:center; }
+  .budget-panel-head h2 { font-size:1.2rem; }
+  .budget-profile { padding:8px 9px; font-size:.72rem; }
+  .daily-budget-panel .budget-panel-intro { font-size:.76rem; margin:8px 0; }
+  .energy-infographic { gap:8px; padding:8px 0; }
+  .calorie-dial { width:clamp(120px,36vw,154px); }
+  .calorie-dial::before { inset:6px; }
+  .dial-content > strong { font-size:2.4rem; }
+  .dial-content > span { font-size:.73rem; }
+  .energy-stat > span { font-size:.7rem; }
+  .energy-stat > strong { font-size:1.2rem; }
+  .energy-stat > small { font-size:.65rem; }
+  .energy-stat .energy-placeholder { font-size:.75rem; }
+  .daily-budget-panel .energy-caption { margin:3px 0 14px; font-size:.68rem; }
+  .nutrient-infographics { gap:14px; padding-top:14px; }
+  .nutrient-heading h3 { font-size:.86rem; }
+  .nutrient-remaining { font-size:.72rem; }
+  .nutrient-remaining b { font-size:.86rem; }
+  .nutrient-values { font-size:.69rem; gap:4px; }
+  .nutrient-values b { margin-left:2px; }
+  .daily-budget-panel .budget-panel-foot { font-size:.65rem; margin-top:12px; }
 }

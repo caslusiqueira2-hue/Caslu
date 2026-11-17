@@ -3,27 +3,32 @@ import { test } from 'node:test';
 import { renderDailyBudgets } from '../public/daily-budgets.mjs';
 const targets={calories:2000,carbs:250,protein:100,fat:66.7};
 const consumed={calories:500,carbs:50,protein:25,fat:10};
-test('quadro inicial reúne meta, consumo e saldo de calorias e dos três macros',()=>{
+test('infográfico mostra calorias restantes e barras com consumo, meta e saldo de cada macro',()=>{
   const html=renderDailyBudgets(consumed,targets);
-  assert.ok(html.includes('hero daily-budget-panel'));
-  for(const label of ['Calorias','Carboidratos','Proteínas','Gorduras'])assert.ok(html.includes('aria-label="'+label+'"'));
-  for(const label of ['Meta diária','Consumido','Falta para a meta'])assert.equal((html.match(new RegExp('data-label="'+label+'"','g'))||[]).length,4);
-  for(const value of ['2.000','1.500','200','75','56,7'])assert.ok(html.includes(value),value);
+  assert.ok(html.includes('1.500 kcal restantes'));
+  assert.ok(html.includes('data-energy="target"'));
+  assert.ok(html.includes('data-energy="consumed"'));
+  assert.equal((html.match(/role="progressbar"/g)||[]).length,3);
+  for(const label of ['Proteínas','Carboidratos','Gorduras'])assert.ok(html.includes('aria-label="'+label+'"'));
+  for(const value of ['200','75','56,7'])assert.ok(html.includes('Faltam <b>'+value+' g</b>'),value);
+  assert.ok(!html.includes('<table'));
 });
-test('consumo acima da meta exibe excesso sem valor restante negativo',()=>{
+test('excesso de consumo aparece identificado e limita barras a 100 por cento',()=>{
   const html=renderDailyBudgets({...consumed,calories:2200,protein:130},targets);
-  assert.equal((html.match(/data-label="Acima da meta"/g)||[]).length,2);
-  assert.ok(html.includes('<strong>200</strong><small>kcal</small>'));
-  assert.ok(html.includes('<strong>30</strong><small>g</small>'));
+  assert.ok(html.includes('200 kcal acima da meta'));
+  assert.ok(html.includes('Excedeu <b>30 g</b>'));
   assert.ok(!html.includes('-200'));
-  assert.ok(!html.includes('-30'));
+  assert.ok(!html.includes('width:130%'));
 });
-test('perfil ausente ou bloqueado mantém consumo e pede metas sem inventar valores',()=>{
-  for(const target of [null,{blocked:true,reason:'Acompanhamento individual'}]){
-    const html=renderDailyBudgets(consumed,target);
-    assert.equal((html.match(/A definir/g)||[]).length,8);
-    assert.ok(html.includes('<strong>500</strong><small>kcal</small>'));
-    assert.ok(html.includes('Preencha e salve seu perfil'));
+test('ausência de perfil e metas individuais têm orientação visível e mantêm o consumo',()=>{
+  const empty=renderDailyBudgets(consumed,null);
+  assert.ok(empty.includes('Calcular metas'));
+  assert.ok(empty.includes('Preencha<br>seu perfil'));
+  assert.ok(empty.includes('<strong>500</strong><small>kcal</small>'));
+  const blocked=renderDailyBudgets(consumed,{blocked:true,reason:'Use metas definidas com um profissional.'});
+  assert.ok(blocked.includes('Use metas definidas com um profissional.'));
+  for(const html of [empty,blocked]){
+    assert.ok(!html.includes('A definir'));
     assert.ok(!html.includes('NaN'));
   }
 });
